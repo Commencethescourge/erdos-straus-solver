@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PAYLOAD=$(cat); FILE=$(echo \"$PAYLOAD\" | jq -r '.tool_input.file_path'); if echo \"$FILE\" | grep -qE '\\.csv'; then CONTENT=$(echo \"$PAYLOAD\" | jq -r '.tool_input.content'); if echo \"$CONTENT\" | grep -qE '([^=\"]|^)[0-9]{16,}'; then echo 'ERROR: Detected raw integers >15 digits. Excel will truncate these. Rewrite using =\"1234...\" format.' && exit 1; fi; fi; exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | { read file_path; if echo \"$file_path\" | grep -qE '\\.py'; then black \"$file_path\"; fi; }"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); ACTIVE=$(echo \"$INPUT\" | jq -r '.stop_hook_active'); if [ \"$ACTIVE\" = \"true\" ]; then exit 0; fi; pytest tests/ || (echo 'Tests failed! Please fix breaking changes.'; exit 1)"
+          }
+        ]
+      }
+    ]
+  }
+}
