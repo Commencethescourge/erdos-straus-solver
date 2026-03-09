@@ -36,45 +36,46 @@ class Solution:
     steps: int
 
 
-def solve_single(n: int, step_cap: int) -> tuple[Optional[Solution], int]:
+def solve_single(
+    n: int, step_cap: int, y_cap_per_x: int = 1_000_000
+) -> tuple[Optional[Solution], int]:
     """Find x ≤ y ≤ z such that 4/n = 1/x + 1/y + 1/z.
+
+    Uses a per-x y-iteration cap to avoid exhausting the global budget on a
+    single x value.  Falls back to the global step_cap as an overall limit.
 
     Returns (Solution | None, steps_used).
     """
     if n <= 0:
         return None, 0
     if n == 1:
-        # 4/1 = 1/1 + 1/1 + 1/2  (actually 1+1+0.5 !=4, need 4=1/x+1/y+1/z -> no)
-        # 4 = 1/x+1/y+1/z has no solution for positive integers.
-        # But 4/1 = 4, and 1/x+1/y+1/z ≤ 3, so n=1 is impossible.
         return None, 0
 
     steps = 0
-    # x ranges from ceil(n/4) to 3n/4 (upper bound: 1/x > 1/n => x < n,
-    # but also 1/y+1/z ≥ 2/z ≥ ... practically x ≤ n is enough)
     x_min = max(1, math.ceil(n / 4))
-    x_max = n  # generous upper bound
+    x_max = n
 
     for x in range(x_min, x_max + 1):
-        num_r = 4 * x - n  # numerator of remainder 4/n - 1/x = (4x-n)/(nx)
+        num_r = 4 * x - n
         if num_r <= 0:
             steps += 1
             if steps >= step_cap:
                 return None, steps
             continue
-        den_r = n * x  # denominator of remainder
+        den_r = n * x
 
-        # 1/y + 1/z = num_r / den_r, with y ≤ z
-        # y ≥ ceil(den_r / num_r)  and  y ≤ 2*den_r / num_r
         y_min = math.ceil(den_r / num_r)
-        y_max = 2 * den_r // num_r  # floor(2*den_r/num_r)
+        y_max = 2 * den_r // num_r
 
+        y_steps = 0
         for y in range(max(x, y_min), y_max + 1):
             steps += 1
+            y_steps += 1
             if steps >= step_cap:
                 return None, steps
+            if y_steps >= y_cap_per_x:
+                break
 
-            # z = den_r * y / (num_r * y - den_r)
             denom_z = num_r * y - den_r
             if denom_z <= 0:
                 continue
@@ -83,6 +84,33 @@ def solve_single(n: int, step_cap: int) -> tuple[Optional[Solution], int]:
                 z = num_z // denom_z
                 if z >= y:
                     return Solution(n=n, x=x, y=y, z=z, steps=steps), steps
+
+    return None, steps
+
+
+def solve_at_x(n: int, x: int, step_cap: int) -> tuple[Optional[Solution], int]:
+    """Try to solve 4/n = 1/x + 1/y + 1/z for a fixed x value."""
+    num_r = 4 * x - n
+    if num_r <= 0:
+        return None, 0
+    den_r = n * x
+
+    y_min = math.ceil(den_r / num_r)
+    y_max = 2 * den_r // num_r
+
+    steps = 0
+    for y in range(max(x, y_min), y_max + 1):
+        steps += 1
+        if steps >= step_cap:
+            return None, steps
+        denom_z = num_r * y - den_r
+        if denom_z <= 0:
+            continue
+        num_z = den_r * y
+        if num_z % denom_z == 0:
+            z = num_z // denom_z
+            if z >= y:
+                return Solution(n=n, x=x, y=y, z=z, steps=steps), steps
 
     return None, steps
 
