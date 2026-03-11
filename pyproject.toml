@@ -1,2 +1,37 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "erdos-straus-solver"
+version = "2.0.0"
+description = "GPU-accelerated Erdos-Straus conjecture solver with multi-device distributed computing"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Dashawn McLaughlin"}
+]
+keywords = ["number-theory", "erdos-straus", "conjecture", "gpu", "opencl"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C",
+]
+
+dependencies = []
+
+[project.optional-dependencies]
+gpu = ["pyopencl>=2024.1"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+erdos-straus = "erdos_straus:main"
+erdos-straus-gpu = "erdos_straus_gpu:main"
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.setuptools]
+py-modules = ["erdos_straus", "erdos_straus_gpu", "cpu_rescue", "phone_solver"]
