@@ -4,17 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Erdős–Straus Conjecture Dashboard</title>
+<link rel="stylesheet" href="../ui-kit/base.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: #0f1117;
-    color: #e0e0e8;
-    min-height: 100vh;
+  /* Project overrides — erdos_dashboard accent = brighter blue */
+  :root {
+    --accent:       #5b9aff;
+    --accent-dim:   #5b9aff22;
+    --accent-green: #4ade80;
+    --accent-amber: #fbbf24;
+    --accent-purple:#a78bfa;
+    --accent-rose:  #fb7185;
   }
+
+  body { min-height: 100vh; }
   header {
-    background: linear-gradient(135deg, #1a1d2e 0%, #0f1117 100%);
+    background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-base) 100%);
     border-bottom: 2px solid #2d6cdf;
     padding: 2rem 2rem 1.5rem;
     text-align: center;
@@ -22,14 +27,14 @@
   header h1 {
     font-size: 1.8rem;
     font-weight: 700;
-    color: #fff;
+    color: var(--text-title);
     letter-spacing: 0.5px;
   }
-  header h1 span { color: #5b9aff; }
+  header h1 span { color: var(--accent); }
   header .subtitle {
     margin-top: 0.4rem;
     font-size: 0.95rem;
-    color: #7a8bb5;
+    color: var(--text-tertiary);
     font-weight: 400;
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -44,31 +49,31 @@
     margin-bottom: 2rem;
   }
   .card {
-    background: #1a1d2e;
-    border: 1px solid #2a2e42;
-    border-radius: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
     padding: 1.25rem 1.5rem;
     text-align: center;
     transition: border-color 0.2s;
   }
-  .card:hover { border-color: #5b9aff; }
+  .card:hover { border-color: var(--accent); }
   .card .value {
     font-size: 2rem;
     font-weight: 700;
-    color: #5b9aff;
+    color: var(--accent);
     line-height: 1.2;
   }
   .card .label {
     font-size: 0.8rem;
-    color: #7a8bb5;
+    color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-top: 0.3rem;
   }
-  .card.accent-green .value { color: #4ade80; }
-  .card.accent-amber .value { color: #fbbf24; }
-  .card.accent-purple .value { color: #a78bfa; }
-  .card.accent-rose .value { color: #fb7185; }
+  .card.accent-green .value  { color: var(--accent-green); }
+  .card.accent-amber .value  { color: var(--accent-amber); }
+  .card.accent-purple .value { color: var(--accent-purple); }
+  .card.accent-rose .value   { color: var(--accent-rose); }
 
   /* Charts */
   .chart-grid {
@@ -78,37 +83,37 @@
     margin-bottom: 2rem;
   }
   .chart-panel {
-    background: #1a1d2e;
-    border: 1px solid #2a2e42;
-    border-radius: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
     padding: 1.5rem;
   }
   .chart-panel.full-width { grid-column: 1 / -1; }
   .chart-panel h2 {
     font-size: 1rem;
     font-weight: 600;
-    color: #c0c8e0;
+    color: var(--text-secondary);
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid #2a2e42;
+    border-bottom: 1px solid var(--border-default);
   }
   .chart-wrapper { position: relative; height: 340px; }
 
   /* Table */
   .table-panel {
-    background: #1a1d2e;
-    border: 1px solid #2a2e42;
-    border-radius: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
     padding: 1.5rem;
     margin-bottom: 2rem;
   }
   .table-panel h2 {
     font-size: 1rem;
     font-weight: 600;
-    color: #c0c8e0;
+    color: var(--text-secondary);
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid #2a2e42;
+    border-bottom: 1px solid var(--border-default);
   }
   table {
     width: 100%;
@@ -118,32 +123,32 @@
   thead th {
     text-align: left;
     padding: 0.6rem 1rem;
-    background: #13151f;
-    color: #7a8bb5;
+    background: var(--bg-base);
+    color: var(--text-tertiary);
     font-weight: 600;
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 1px;
-    border-bottom: 2px solid #2a2e42;
+    border-bottom: 2px solid var(--border-default);
   }
   tbody td {
     padding: 0.55rem 1rem;
-    border-bottom: 1px solid #1e2235;
-    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    border-bottom: 1px solid var(--bg-hover);
+    font-family: var(--font-mono);
     font-size: 0.82rem;
   }
-  tbody tr:hover { background: #1e2235; }
+  tbody tr:hover { background: var(--bg-hover); }
   tbody td.z-cell {
     word-break: break-all;
     max-width: 420px;
-    color: #5b9aff;
+    color: var(--accent);
   }
-  .rank { color: #fbbf24; font-weight: 700; }
+  .rank { color: var(--accent-amber); font-weight: 700; }
 
   footer {
     text-align: center;
     padding: 1.5rem;
-    color: #4a5275;
+    color: var(--text-muted);
     font-size: 0.8rem;
   }
 
@@ -322,10 +327,12 @@
 </footer>
 
 <script>
-// Chart defaults for dark theme
-Chart.defaults.color = '#7a8bb5';
-Chart.defaults.borderColor = '#2a2e42';
-Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+// Chart defaults — pull from ui-kit CSS variables
+const _cs = getComputedStyle(document.documentElement);
+const _v = (n) => _cs.getPropertyValue(n).trim();
+Chart.defaults.color = _v('--text-tertiary');
+Chart.defaults.borderColor = _v('--border-default');
+Chart.defaults.font.family = _v('--font-sans');
 
 // ─── Chart 1: z Digit Count Distribution ───
 const zDigitCtx = document.getElementById('zDigitChart').getContext('2d');
