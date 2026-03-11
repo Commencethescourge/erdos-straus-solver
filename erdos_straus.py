@@ -9,16 +9,18 @@ Two-stage pipeline:
 4/n = 1/x + 1/y + 1/z   for positive integers x ≤ y ≤ z.
 """
 
-import csv
 import math
 import multiprocessing as mp
 import os
-import tempfile
+import sys
 import time
 import uuid
 from dataclasses import dataclass
-from fractions import Fraction
 from typing import Optional
+
+# Add parent dir to path so io_safety can be found
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from io_safety import csv_safe, load_checkpoint_csv, save_checkpoint_csv
 
 # ---------------------------------------------------------------------------
 # Core solver
@@ -115,17 +117,7 @@ def solve_at_x(n: int, x: int, step_cap: int) -> tuple[Optional[Solution], int]:
     return None, steps
 
 
-# ---------------------------------------------------------------------------
-# CSV safety — str(z) firewall
-# ---------------------------------------------------------------------------
-
-
-def csv_safe(value: int) -> str:
-    """Wrap integers >15 digits in ="" to prevent Excel truncation."""
-    s = str(value)
-    if len(s) > 15:
-        return f'="{s}"'
-    return s
+# csv_safe imported from io_safety
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +151,7 @@ def _worker(args: tuple) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Checkpoint I/O  (atomic via os.replace)
+# Checkpoint I/O — delegated to io_safety
 # ---------------------------------------------------------------------------
 
 CSV_FIELDS = ["n", "x", "y", "z", "steps", "solved", "run_id"]
@@ -167,35 +159,12 @@ CSV_FIELDS = ["n", "x", "y", "z", "steps", "solved", "run_id"]
 
 def load_checkpoint(path: str) -> dict[int, dict]:
     """Load previously computed results keyed by n."""
-    results: dict[int, dict] = {}
-    if not os.path.exists(path):
-        return results
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            n = int(row["n"])
-            results[n] = row
-    return results
+    return load_checkpoint_csv(path, key_field="n")
 
 
 def save_checkpoint(path: str, results: dict[int, dict]) -> None:
-    """Atomically write results to CSV via a temp file + os.replace()."""
-    dir_name = os.path.dirname(os.path.abspath(path))
-    fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-            writer.writeheader()
-            for n in sorted(results.keys()):
-                writer.writerow(results[n])
-        os.replace(tmp_path, path)
-    except BaseException:
-        # Clean up temp file on failure
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
+    """Atomically write results to CSV via io_safety."""
+    save_checkpoint_csv(path, results, CSV_FIELDS, sort_key="n")
 
 
 # ---------------------------------------------------------------------------
