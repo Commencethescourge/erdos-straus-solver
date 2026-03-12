@@ -10,3 +10,8 @@ test_output.csv
 dist/
 *.egg-info/
 build/
+
+# Sieve precomputed data (114MB — run download_sieve_data.py)
+sieve_data/Residues.txt
+sieve_data/Filters.txt
+!sieve_data/.gitkeep
