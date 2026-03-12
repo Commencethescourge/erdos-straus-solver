@@ -42,6 +42,29 @@ case "${1:-help}" in
     echo "Solver running in tmux. Use './phone_sync.sh attach' to watch."
     ;;
 
+  sieve)
+    K_START="${2:-2901}"
+    K_END="${3:-3864}"
+    WORKERS="${4:-2}"
+    echo "Deploying sieve solver to phone..."
+    scp phone_sieve.py "$PHONE:$REMOTE_DIR/"
+    # Push sieve data if we have it locally (saves phone bandwidth)
+    if [[ -f sieve_data/Residues.txt ]]; then
+        echo "Pushing sieve data (114MB)..."
+        ssh "$PHONE" "mkdir -p $REMOTE_DIR/sieve_data"
+        scp sieve_data/Residues.txt sieve_data/Filters.txt "$PHONE:$REMOTE_DIR/sieve_data/"
+    else
+        echo "No local sieve data — phone will download from GitHub"
+    fi
+    echo "Starting sieve in tmux (k=$K_START..$K_END, $WORKERS workers)..."
+    ssh "$PHONE" "cd $REMOTE_DIR && tmux new-session -d -s sieve 'python -u phone_sieve.py $K_START $K_END $WORKERS 2>&1 | tee sieve.log'"
+    echo "Sieve running. Use './phone_sync.sh attach-sieve' to watch."
+    ;;
+
+  attach-sieve)
+    ssh -t "$PHONE" "tmux attach -t sieve 2>/dev/null || echo 'No sieve session. Start with: phone_sync.sh sieve [k_start] [k_end]'"
+    ;;
+
   attach)
     ssh -t "$PHONE" "tmux attach -t erdos 2>/dev/null || echo 'No active session. Start one with: phone_sync.sh run chunk.txt'"
     ;;

@@ -52,7 +52,8 @@ SIEVE_FLEET = [
     {"name": "kaggle",    "cores": 4, "ram_gb": 29, "workers": 4, "notebook": "erdos_straus_sieve_kaggle.ipynb"},
     {"name": "colab",     "cores": 2, "ram_gb": 12, "workers": 4, "notebook": "erdos_straus_sieve_colab.ipynb"},
     {"name": "sagemaker", "cores": 4, "ram_gb": 16, "workers": 4, "notebook": "erdos_straus_sieve_sagemaker.ipynb"},
-    {"name": "lightning", "cores": 4, "ram_gb": 16, "workers": 4, "notebook": "erdos_straus_lightning.py"},
+    {"name": "lightning", "cores": 4, "ram_gb": 16, "workers": 4, "notebook": "erdos_straus_sieve_lightning.py"},
+    {"name": "phone",     "cores": 8, "ram_gb": 4,  "workers": 2, "notebook": "phone_sieve.py"},
 ]
 
 
