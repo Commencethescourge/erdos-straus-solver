@@ -89,9 +89,6 @@ python cloud_coordinator.py merge
 | **Core solvers** | |
 | `erdos_straus.py` | CPU solver module with two-stage pipeline |
 | `erdos_straus_gpu.py` | GPU-accelerated solver (OpenCL, AMD RDNA 2) |
-| `final_rescue.py` | GPU+CPU rescue for stubborn holdouts |
-| `cpu_rescue.py` | CPU rescue worker for chunked processing |
-| `auto_rescue.py` | Coordinator that chains CPU rescue chunks |
 | **Cloud solvers** | |
 | `erdos_straus_colab.ipynb` | Google Colab notebook |
 | `erdos_straus_kaggle.ipynb` | Kaggle notebook |
@@ -99,19 +96,16 @@ python cloud_coordinator.py merge
 | `erdos_straus_sagemaker.ipynb` | SageMaker Studio Lab notebook |
 | `cloud_coordinator.py` | Split ranges, merge results, check status |
 | **Phone solvers** | |
-| `phone_solver.py` | Termux CPU solver v1 |
 | `phone_solver_v2.py` | Termux CPU solver v2 (auto-resume, 20M cap) |
 | `phone_gpu_solver.c` | Adreno OpenCL C solver |
-| **Analysis & tools** | |
-| `colab_rescue.py` | Legacy Colab rescue script |
-| `survivor_profile.py` | Structural analysis of unsolved values |
+| **Tools** | |
 | `erdos_dashboard.html` | Interactive results dashboard |
 | `tests/` | Test suite (34 tests: CPU, GPU, integration) |
 | **Data** | |
 | `hunter_20M_checkpoint.csv` | Stage 1 results for n=2..20M (1,666,666 rows) |
 | `leviathan_20M_checkpoint.csv` | Stage 2 results for n=2..20M (175,392 rows) |
-| `cpu_rescue{3-8}_results.csv` | Rescue results for n=20M..100M (~2.7M rows) |
 | `final_rescue_results.csv` | Final 79 holdouts solved by GPU |
+| `archive/` | Rescue scripts and intermediate data from the 100M push |
 
 ## Usage
 
