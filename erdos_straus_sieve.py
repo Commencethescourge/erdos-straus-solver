@@ -35,11 +35,6 @@ import os
 import sys
 import time
 
-try:
-    import numpy as np
-    HAS_NUMPY = True
-except ImportError:
-    HAS_NUMPY = False
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -75,25 +70,32 @@ def load_filters(path=FILTERS_PATH):
 
     Format: each filter is [prime, r1, r2, ..., -1]
     Returns list of (prime, frozenset_of_filtered_residues).
+    Streams the file to avoid loading 86MB into memory at once.
     """
     if not os.path.exists(path):
         raise FileNotFoundError(
             f"Filters.txt not found at {path}. Run: python download_sieve_data.py"
         )
     filters = []
-    with open(path) as f:
-        tokens = list(map(int, f.read().split()))
+    current_prime = None
+    current_residues = []
 
-    i = 0
-    while i < len(tokens):
-        p = tokens[i]
-        i += 1
-        residues = []
-        while i < len(tokens) and tokens[i] != -1:
-            residues.append(tokens[i])
-            i += 1
-        i += 1  # skip the -1
-        filters.append((p, frozenset(residues)))
+    with open(path) as f:
+        for line in f:
+            for token in line.split():
+                n = int(token)
+                if n == -1:
+                    if current_prime is not None:
+                        filters.append((current_prime, frozenset(current_residues)))
+                    current_prime = None
+                    current_residues = []
+                elif current_prime is None:
+                    current_prime = n
+                else:
+                    current_residues.append(n)
+
+    if current_prime is not None:
+        filters.append((current_prime, frozenset(current_residues)))
 
     return filters
 
@@ -104,40 +106,23 @@ def load_filters(path=FILTERS_PATH):
 
 # Worker globals (set by pool initializer)
 _w_residues = None
-_w_residues_np = None
 _w_filters = None
 
 
 def _init_worker(residues_path, filters_path):
     """Initialize worker process with sieve data."""
-    global _w_residues, _w_residues_np, _w_filters
+    global _w_residues, _w_filters
     _w_residues = load_residues(residues_path)
     _w_filters = load_filters(filters_path)
-    if HAS_NUMPY:
-        _w_residues_np = np.array(_w_residues, dtype=np.int64)
 
 
-def _check_batch_numpy(k):
-    """Process one batch using NumPy vectorization. Returns list of survivor n values."""
-    candidates = _w_residues_np + np.int64(k) * np.int64(G_8)
-    alive = np.ones(len(candidates), dtype=bool)
+def _check_batch(k):
+    """Process one batch. Returns list of survivor n values.
 
-    for p, excluded in _w_filters:
-        if not alive.any():
-            break
-        remainders = candidates[alive] % p
-        # Check which remainders are in the excluded set
-        mask = np.zeros(len(remainders), dtype=bool)
-        for r in excluded:
-            mask |= (remainders == r)
-        alive_idx = np.where(alive)[0]
-        alive[alive_idx[mask]] = False
-
-    return candidates[alive].tolist()
-
-
-def _check_batch_pure(k):
-    """Process one batch using pure Python. Returns list of survivor n values."""
+    Pure Python with frozenset lookup and early exit beats NumPy here
+    because the filter cascade kills 99.8% of candidates in the first
+    ~10K filters. Per-candidate early exit > bulk vectorization.
+    """
     survivors = []
     for r in _w_residues:
         n = r + k * G_8
@@ -153,11 +138,7 @@ def _check_batch_pure(k):
 
 def check_batch(k):
     """Check one batch. Returns (k, survivors_list)."""
-    if HAS_NUMPY and _w_residues_np is not None:
-        survivors = _check_batch_numpy(k)
-    else:
-        survivors = _check_batch_pure(k)
-    return (k, survivors)
+    return (k, _check_batch(k))
 
 
 def is_prime(n):
@@ -193,7 +174,14 @@ def sieve_range(k_start, k_end, workers=None, checkpoint_dir="."):
       k=0..38641709     -> 10^18
     """
     if workers is None:
-        workers = max(1, mp.cpu_count() - 1)
+        # Each worker needs ~800MB for filter data; cap to avoid OOM
+        try:
+            import psutil
+            avail_gb = psutil.virtual_memory().available / (1024**3)
+            max_by_mem = max(1, int(avail_gb / 0.9))  # ~900MB per worker
+        except ImportError:
+            max_by_mem = 2  # conservative default
+        workers = max(1, min(mp.cpu_count() - 1, max_by_mem))
 
     total_batches = k_end - k_start + 1
     n_max = (k_end + 1) * G_8
@@ -225,9 +213,12 @@ def sieve_range(k_start, k_end, workers=None, checkpoint_dir="."):
     print(f"  Remaining: {len(remaining):,}")
     print(f"  Verification range: n up to ~{n_max:.2e}")
     print(f"  Workers: {workers}")
-    print(f"  NumPy: {'yes' if HAS_NUMPY else 'no (install for 10-100x speedup)'}")
+    print(f"  Engine: pure Python (frozenset + early exit)")
     print(f"  Checkpoint: {checkpoint_path}")
     print("=" * 65)
+
+    # Load residue count in main process for progress reporting
+    residue_count = len(load_residues())
 
     fields = ["batch_k", "candidates", "survivors", "survivor_n", "is_prime"]
     mode = "a" if done_batches else "w"
@@ -245,10 +236,7 @@ def sieve_range(k_start, k_end, workers=None, checkpoint_dir="."):
             initializer=_init_worker,
             initargs=(RESIDUES_PATH, FILTERS_PATH),
         ) as pool:
-            # Process in chunks for better progress reporting
-            chunk_size = max(1, min(100, len(remaining) // (workers * 4)))
-
-            for result in pool.imap_unordered(check_batch, remaining, chunksize=chunk_size):
+            for result in pool.imap_unordered(check_batch, remaining, chunksize=1):
                 k, survivors = result
                 processed += 1
 
@@ -257,7 +245,7 @@ def sieve_range(k_start, k_end, workers=None, checkpoint_dir="."):
                         prime = is_prime(n)
                         writer.writerow({
                             "batch_k": k,
-                            "candidates": len(_w_residues) if _w_residues else "?",
+                            "candidates": residue_count,
                             "survivors": len(survivors),
                             "survivor_n": n,
                             "is_prime": prime,
@@ -268,7 +256,7 @@ def sieve_range(k_start, k_end, workers=None, checkpoint_dir="."):
                 else:
                     writer.writerow({
                         "batch_k": k,
-                        "candidates": len(_w_residues) if _w_residues else "?",
+                        "candidates": residue_count,
                         "survivors": 0,
                         "survivor_n": "",
                         "is_prime": "",
