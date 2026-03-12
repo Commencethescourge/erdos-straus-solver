@@ -55,33 +55,68 @@ Results are saved atomically via `tempfile.mkstemp()` + `os.replace()`, so check
 
 Integer values exceeding 15 digits are wrapped in `=""` format to prevent Excel/Sheets truncation. A pre-tool-use hook enforces this at write time. This is critical — 97.5% of solutions have z values exceeding 10^14.
 
+## Distributed Cloud Solving
+
+Push the frontier beyond 100M using free cloud compute. All solvers are self-contained (zero dependencies), auto-resume on crash, and use a 20M step cap.
+
+| Platform | File | Cores | RAM | Session | Notes |
+|----------|------|-------|-----|---------|-------|
+| **Kaggle** | `erdos_straus_kaggle.ipynb` | 4 | 29GB | 12hr | Background execution — keeps running when tab is closed |
+| **Google Colab** | `erdos_straus_colab.ipynb` | 2 | 12GB | 12hr | Saves to Google Drive |
+| **Lightning.ai** | `erdos_straus_lightning.py` | 4 | 16GB | Always-on | Full terminal, run with tmux |
+| **SageMaker Studio Lab** | `erdos_straus_sagemaker.ipynb` | 4 | 16GB | 12hr | Persistent storage across sessions |
+| **Phone (Termux)** | `phone_solver_v2.py` | 8 | 4GB | Always-on | Wake lock + tmux for 24/7 solving |
+
+### Coordinator
+
+Split ranges across platforms and merge results:
+
+```bash
+# Split the next 100M across 5 platforms
+python cloud_coordinator.py split 100000001 200000000 5
+
+# Check progress across all result files
+python cloud_coordinator.py status
+
+# Merge all results into combined_results.csv
+python cloud_coordinator.py merge
+```
+
 ## Files
 
 | File | Description |
 |------|-------------|
+| **Core solvers** | |
 | `erdos_straus.py` | CPU solver module with two-stage pipeline |
 | `erdos_straus_gpu.py` | GPU-accelerated solver (OpenCL, AMD RDNA 2) |
 | `final_rescue.py` | GPU+CPU rescue for stubborn holdouts |
 | `cpu_rescue.py` | CPU rescue worker for chunked processing |
 | `auto_rescue.py` | Coordinator that chains CPU rescue chunks |
-| `colab_rescue.py` | Self-contained Google Colab notebook solver |
+| **Cloud solvers** | |
+| `erdos_straus_colab.ipynb` | Google Colab notebook |
+| `erdos_straus_kaggle.ipynb` | Kaggle notebook |
+| `erdos_straus_lightning.py` | Lightning.ai terminal script |
+| `erdos_straus_sagemaker.ipynb` | SageMaker Studio Lab notebook |
+| `cloud_coordinator.py` | Split ranges, merge results, check status |
+| **Phone solvers** | |
+| `phone_solver.py` | Termux CPU solver v1 |
+| `phone_solver_v2.py` | Termux CPU solver v2 (auto-resume, 20M cap) |
+| `phone_gpu_solver.c` | Adreno OpenCL C solver |
+| **Analysis & tools** | |
+| `colab_rescue.py` | Legacy Colab rescue script |
 | `survivor_profile.py` | Structural analysis of unsolved values |
-| `tests/` | Test suite (34 tests: CPU, GPU, integration) |
 | `erdos_dashboard.html` | Interactive results dashboard |
+| `tests/` | Test suite (34 tests: CPU, GPU, integration) |
+| **Data** | |
 | `hunter_20M_checkpoint.csv` | Stage 1 results for n=2..20M (1,666,666 rows) |
 | `leviathan_20M_checkpoint.csv` | Stage 2 results for n=2..20M (175,392 rows) |
 | `cpu_rescue{3-8}_results.csv` | Rescue results for n=20M..100M (~2.7M rows) |
 | `final_rescue_results.csv` | Final 79 holdouts solved by GPU |
-| `hunter_1M_checkpoint.csv` | Stage 1 results for n=2..1M (83,332 rows) |
-| `leviathan_1M_checkpoint.csv` | Stage 2 results for n=2..1M (9,381 rows) |
-| `hunter_checkpoint.csv` | Stage 1 results for n=2..50K (4,166 rows) |
-| `leviathan_checkpoint.csv` | Stage 2 results for n=2..50K (565 rows) |
-| `pyproject.toml` | pytest configuration |
 
 ## Usage
 
 ```bash
-# Run the full pipeline
+# Run the full pipeline (local)
 python erdos_straus.py
 
 # Run tests
@@ -90,6 +125,9 @@ pytest tests/
 # Use the solver programmatically
 from erdos_straus import solve_single
 sol, steps = solve_single(n=1009, step_cap=500_000)
+
+# Distribute work across cloud platforms
+python cloud_coordinator.py split 100000001 200000000 5
 ```
 
 ## Requirements
@@ -97,4 +135,5 @@ sol, steps = solve_single(n=1009, step_cap=500_000)
 - Python 3.10+
 - CPU solver: no external dependencies (stdlib only)
 - GPU solver: `pyopencl`, `numpy`
+- Cloud notebooks: zero dependencies (everything is self-contained)
 - Optional: `black` (code formatting), `pytest` (testing)
