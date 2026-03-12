@@ -64,7 +64,9 @@ Integer values exceeding 15 digits are wrapped in `=""` format to prevent Excel/
 | `final_rescue.py` | GPU+CPU rescue for stubborn holdouts |
 | `cpu_rescue.py` | CPU rescue worker for chunked processing |
 | `auto_rescue.py` | Coordinator that chains CPU rescue chunks |
-| `tests/test_solver.py` | Test suite (23 tests) |
+| `colab_rescue.py` | Self-contained Google Colab notebook solver |
+| `survivor_profile.py` | Structural analysis of unsolved values |
+| `tests/` | Test suite (34 tests: CPU, GPU, integration) |
 | `erdos_dashboard.html` | Interactive results dashboard |
 | `hunter_20M_checkpoint.csv` | Stage 1 results for n=2..20M (1,666,666 rows) |
 | `leviathan_20M_checkpoint.csv` | Stage 2 results for n=2..20M (175,392 rows) |
