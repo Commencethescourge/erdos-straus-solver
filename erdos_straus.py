@@ -18,8 +18,6 @@ import uuid
 from dataclasses import dataclass
 from typing import Optional
 
-# Add parent dir to path so io_safety can be found
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from io_safety import csv_safe, load_checkpoint_csv, save_checkpoint_csv
 
 # ---------------------------------------------------------------------------
