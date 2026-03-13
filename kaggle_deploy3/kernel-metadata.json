@@ -1,0 +1,15 @@
+{
+  "id": "commencethescourge/erdos-straus-sieve-2",
+  "title": "erdos-straus-sieve-2",
+  "code_file": "erdos_straus_sieve_kaggle.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "false",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "dataset_sources": ["commencethescourge/erdos-straus-sieve-data"],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}
