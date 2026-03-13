@@ -2,132 +2,121 @@
 
 **Guinea Pig Trench LLC**
 
-Verifies the [Erdos-Straus conjecture](https://en.wikipedia.org/wiki/Erd%C5%91s%E2%80%93Straus_conjecture) for all integers n = 2..100,000,000 by finding positive integer decompositions:
+Verifies the [Erdos-Straus conjecture](https://en.wikipedia.org/wiki/Erd%C5%91s%E2%80%93Straus_conjecture) — that for every integer n >= 2, the equation 4/n = 1/x + 1/y + 1/z has a solution in positive integers.
 
 ```
-4/n = 1/x + 1/y + 1/z    where x <= y <= z
+4/n = 1/x + 1/y + 1/z    for all n >= 2
 ```
 
-[Live Dashboard](https://commencethescourge.github.io/erdos-straus-solver/erdos_dashboard.html)
+## Current Record
 
-## Results
+**Verified to 10^14 (100 trillion). Zero counterexamples.**
 
-**8,333,332 hard-residue targets (n mod 24 in {1, 17}) fully solved across n=2..100,000,000.** All other residue classes have known parametric families and are trivially solvable. Zero unsolved values remain.
+Achieved via modular sieve across free-tier Kaggle compute. Based on the method of Salez (2014) and Mihnea & Dumitru (2025, arXiv:2509.00128).
 
-- n=2..20M solved via two-stage CPU pipeline (hunter + leviathan)
-- n=20M..100M solved via chunked CPU rescue passes + GPU-accelerated final rescue
-- 79 stubborn holdouts (10M step cap failures) cracked by GPU in 2.5 seconds
-- Max z found: 30 digits; largest z values cluster near n~20M
-- Across all leviathans, **85.6% solve at offset 1** (x = ceil(n/4) + 1)
+## Method: Modular Sieve
 
-### Scaling behavior
+The sieve works by eliminating candidate counterexamples modulo small primes. The sieve modulus is:
 
-| Range | Hard targets | Hunter rate | Leviathan count | Time |
-|-------|-------------|------------|-----------------|------|
-| n=2..50K | 4,166 | 86.4% | 565 | 24s |
-| n=2..1M | 83,332 | 88.7% | 9,381 | 9.4 min |
-| n=2..20M | 1,666,666 | 89.5% | 175,392 | 3.2h |
-| n=20M..100M | 6,666,666 | ~89% | ~460,709 | chunked |
-
-## Architecture
-
-### Three-stage pipeline
-
-1. **Hunter** (Stage 1) — Scans the target range, filtering to only the hard residue classes (n mod 24 in {1, 17}). Uses a 500K global step cap with CPU multiprocessing.
-
-2. **Leviathan Autopsy** (Stage 2) — Retries unsolved nodes from Stage 1 with a 50M step cap.
-
-3. **GPU Rescue** (Stage 3) — Cracks remaining holdouts via OpenCL on AMD Radeon RX 6400 (RDNA 2). The 79 final holdouts that survived 10M CPU step caps were solved in 2.5 seconds on GPU with a 100M step cap.
-
-### Key solver insight
-
-The naive approach iterates over all (x, y) pairs with a single global step budget. For hard cases, the solver would exhaust millions of steps on the y-range of a single x value (typically x = ceil(n/4)) without finding a valid z.
-
-The fix: a **per-x y-iteration cap** (`y_cap_per_x`, default 1M). This lets the solver skip to the next x offset when a given x's y-range is unproductive. Solutions are almost always found at x = ceil(n/4) + 1 with very few y-iterations.
-
-Across all leviathans, **85.6% solve at offset 1** (x = ceil(n/4) + 1). This pattern holds from n=2 through n=100,000,000.
-
-### Checkpoint system
-
-Results are saved atomically via `tempfile.mkstemp()` + `os.replace()`, so checkpoint files are never left in a half-written state. The pipeline resumes cleanly from existing checkpoints.
-
-### CSV safety
-
-Integer values exceeding 15 digits are wrapped in `=""` format to prevent Excel/Sheets truncation. A pre-tool-use hook enforces this at write time. This is critical — 97.5% of solutions have z values exceeding 10^14.
-
-## Distributed Cloud Solving
-
-Push the frontier beyond 100M using free cloud compute. All solvers are self-contained (zero dependencies), auto-resume on crash, and use a 20M step cap.
-
-| Platform | File | Cores | RAM | Session | Notes |
-|----------|------|-------|-----|---------|-------|
-| **Kaggle** | `erdos_straus_kaggle.ipynb` | 4 | 29GB | 12hr | Background execution — keeps running when tab is closed |
-| **Google Colab** | `erdos_straus_colab.ipynb` | 2 | 12GB | 12hr | Saves to Google Drive |
-| **Lightning.ai** | `erdos_straus_lightning.py` | 4 | 16GB | Always-on | Full terminal, run with tmux |
-| **SageMaker Studio Lab** | `erdos_straus_sagemaker.ipynb` | 4 | 16GB | 12hr | Persistent storage across sessions |
-| **Phone (Termux)** | `phone_solver_v2.py` | 8 | 4GB | Always-on | Wake lock + tmux for 24/7 solving |
-
-### Coordinator
-
-Split ranges across platforms and merge results:
-
-```bash
-# Split the next 100M across 5 platforms
-python cloud_coordinator.py split 100000001 200000000 5
-
-# Check progress across all result files
-python cloud_coordinator.py status
-
-# Merge all results into combined_results.csv
-python cloud_coordinator.py merge
 ```
+G_8 = 2^3 * 3^2 * 5 * 7 * 11 * 13 * 17 * 19 = 25,878,772,920
+```
+
+For each batch k, the sieve checks all residues r in a precomputed set (~2.1M residues) to see if n = r + k * G_8 survives a cascade of modular filters. Any survivor is then primality-tested — only prime survivors would be potential counterexamples.
+
+**Result: zero prime survivors across all 3,865 batches (k=0 to k=3864).**
+
+### Sieve Performance
+
+| Range | Batches | Platform | Prime Survivors |
+|-------|---------|----------|-----------------|
+| k=0-966 | 967 | Kaggle | 0 |
+| k=967-1545 | 579 | Kaggle | 0 |
+| k=1546-2318 | 773 | Kaggle | 0 |
+| k=2319-3091 | 773 | Kaggle | 0 |
+| k=3092-3478 | 387 | Kaggle | 0 |
+| k=3479-3864 | 386 | Kaggle | 0 |
+| **Total** | **3,865** | | **0** |
+
+## Prior Work: Brute-Force Pipeline (n=2 to 100M)
+
+Before the modular sieve, the first 100 million integers were verified via a three-stage CPU/GPU pipeline:
+
+1. **Hunter** — Scans hard residue classes (n mod 24 in {1, 17}) with a 500K step cap
+2. **Leviathan** — Retries unsolved cases with a 50M step cap
+3. **GPU Rescue** — Cracks final holdouts via OpenCL (79 holdouts solved in 2.5s)
+
+Key finding: **85.6% of hard cases solve at offset 1** (x = ceil(n/4) + 1), from n=2 through n=100M.
+
+## Distributed Cloud Architecture
+
+All sieve work runs on free cloud compute with zero budget:
+
+| Platform | Cores | RAM | Session | Status |
+|----------|-------|-----|---------|--------|
+| **Kaggle** | 4 | 29GB | 12hr background | Primary — completed 10^14 |
+| Google Colab | 2 | 12GB | 12hr | Too slow on free tier |
+| Lightning.ai | 4 | 16GB | Always-on | Auto-sleeps, loses progress |
+| SageMaker | 4 | 16GB | 12hr | Backup |
+| Phone (Termux) | 8 | 4GB | Always-on | Experimental |
+
+### Lessons Learned
+
+- Kaggle is the only reliable free platform for unattended batch compute
+- Modular sieve produces tiny CSVs vs 500MB brute-force checkpoints
+- `chunksize=1` for `imap_unordered` is critical for progress visibility
+- Auto-resume via CSV checkpoint saved every restart
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| **Core solvers** | |
-| `erdos_straus.py` | CPU solver module with two-stage pipeline |
-| `erdos_straus_gpu.py` | GPU-accelerated solver (OpenCL, AMD RDNA 2) |
-| **Cloud solvers** | |
-| `erdos_straus_colab.ipynb` | Google Colab notebook |
-| `erdos_straus_kaggle.ipynb` | Kaggle notebook |
-| `erdos_straus_lightning.py` | Lightning.ai terminal script |
-| `erdos_straus_sagemaker.ipynb` | SageMaker Studio Lab notebook |
-| `cloud_coordinator.py` | Split ranges, merge results, check status |
-| **Phone solvers** | |
-| `phone_solver_v2.py` | Termux CPU solver v2 (auto-resume, 20M cap) |
-| `phone_gpu_solver.c` | Adreno OpenCL C solver |
+| **Core** | |
+| `erdos_straus.py` | CPU solver (brute-force pipeline) |
+| `erdos_straus_gpu.py` | GPU solver (OpenCL) |
+| **Sieve** | |
+| `sieve_data/Residues.txt` | Precomputed sieve residues (~2.1M) |
+| `sieve_data/Filters.txt` | Modular filter cascade |
+| `kaggle_deploy2/` | Kaggle sieve notebook #1 |
+| `kaggle_deploy3/` | Kaggle sieve notebook #2 |
+| **Cloud** | |
+| `erdos_straus_sieve_lightning.py` | Lightning.ai sieve script |
+| `erdos_straus_sieve_kaggle.ipynb` | Kaggle sieve notebook (original) |
+| `cloud_coordinator.py` | Range splitting, merging, status |
+| **Results** | |
+| `kaggle_results/sieve_results_*.csv` | Sieve output — 6 files covering k=0-3864 |
+| `final_rescue_results.csv` | GPU rescue results (brute-force era) |
 | **Tools** | |
 | `erdos_dashboard.html` | Interactive results dashboard |
-| `tests/` | Test suite (34 tests: CPU, GPU, integration) |
-| **Data** | |
-| `hunter_20M_checkpoint.csv` | Stage 1 results for n=2..20M (1,666,666 rows) |
-| `leviathan_20M_checkpoint.csv` | Stage 2 results for n=2..20M (175,392 rows) |
-| `final_rescue_results.csv` | Final 79 holdouts solved by GPU |
-| `archive/` | Rescue scripts and intermediate data from the 100M push |
+| `tests/` | Test suite |
+
+## Next Milestone
+
+**10^17** — 3.86 million batches. Requires coordinated queue (Google Sheet job queue planned) across multiple concurrent Kaggle sessions.
 
 ## Usage
 
 ```bash
-# Run the full pipeline (local)
+# Run brute-force pipeline (local, up to 100M)
 python erdos_straus.py
 
 # Run tests
 pytest tests/
 
-# Use the solver programmatically
-from erdos_straus import solve_single
-sol, steps = solve_single(n=1009, step_cap=500_000)
-
-# Distribute work across cloud platforms
-python cloud_coordinator.py split 100000001 200000000 5
+# Distribute sieve work
+python cloud_coordinator.py split <start> <end> <platforms>
+python cloud_coordinator.py status
+python cloud_coordinator.py merge
 ```
 
 ## Requirements
 
 - Python 3.10+
-- CPU solver: no external dependencies (stdlib only)
+- Sieve solver: no external dependencies (stdlib only)
 - GPU solver: `pyopencl`, `numpy`
-- Cloud notebooks: zero dependencies (everything is self-contained)
-- Optional: `black` (code formatting), `pytest` (testing)
+- Cloud notebooks: zero dependencies (self-contained)
+
+## References
+
+- Salez, T. (2014). "The Erdos-Straus conjecture: New modular equations and checking up to 10^17"
+- Mihnea, A. & Dumitru, V. (2025). arXiv:2509.00128
