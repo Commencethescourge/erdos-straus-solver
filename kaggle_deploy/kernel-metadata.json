@@ -1,0 +1,13 @@
+{
+  "id": "commencethescourge/erdos-straus-modular-sieve",
+  "title": "erdos-straus-modular-sieve",
+  "code_file": "erdos_straus_sieve_kaggle.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": true,
+  "keywords": [],
+  "competition_sources": [],
+  "dataset_sources": []
+}
